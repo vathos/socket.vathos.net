@@ -15,13 +15,11 @@ logging.getLogger(None).setLevel('DEBUG')
 
 
 class TestSocketServer(TestCase):
-
   def setUp(self):
     self.host = 'staging.api.gke.vathos.net'
     self.port = 7052
 
   def test_test(self):
-
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
       s.sendall(b'test;4')
@@ -38,7 +36,7 @@ class TestSocketServer(TestCase):
   def test_get_pose(self):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
-      s.sendall(b'get_pose;votenet;ZYX;1;10')
+      s.sendall(b'get_pose;votenet;ZYX;1;10;-1;0;0')
       data = s.recv(1024)
       response_raw = data.decode('utf-8')
       response_parsed = response_raw.split(';')
@@ -52,7 +50,7 @@ class TestSocketServer(TestCase):
   def test_trigger(self):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
-      s.sendall(b'trigger;votenet;1;depth')
+      s.sendall(b'trigger;votenet;1;depth;0,0,0,0,0,0;xyz;1;-1')
       data = s.recv(1024)
       data_string = data.decode('utf-8')
       response_parsed = data_string.split(';')
@@ -63,11 +61,14 @@ class TestSocketServer(TestCase):
   def test_save_image(self):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
-      s.sendall(b'save_image;depth;0;0.4,0.6,0.1,-0.24,3.0,-89.0;ZYX;1')
+      s.sendall(
+        b'save_image;depth;0;0.4,0.6,0.1,-0.24,3.0,-89.0;ZYX;1;handeye;0.4,0.1,0.2,-0.24,1.34,-1.12'
+      )
       data = s.recv(1024)
       data_string = data.decode('utf-8')
       response_parsed = data_string.split(';')
       return_type = int(response_parsed[0])
+      print(response_parsed)
       # expect None
       self.assertEqual(return_type, 3)
 
@@ -93,11 +94,35 @@ class TestSocketServer(TestCase):
       # expect None
       self.assertEqual(return_type, 3)
 
+  def test_patch_configuration_by_product(self):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+      s.connect((self.host, self.port))
+      s.sendall(
+        b'patch_configuration_by_product;65f03015416388eef98f2cc4;votenet;icp.votenet.detection.vathos.net;key;0,foo'
+      )
+      data = s.recv(1024)
+      data_string = data.decode('utf-8')
+      response_parsed = data_string.split(';')
+      return_type = int(response_parsed[0])
+      # expect None
+      self.assertEqual(return_type, 3)
+
+  def test_patch_detection(self):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+      s.connect((self.host, self.port))
+      s.sendall(b'patch_detection;1000.0;3')
+      data = s.recv(1024)
+      data_string = data.decode('utf-8')
+      response_parsed = data_string.split(';')
+      return_type = int(response_parsed[0])
+      # expect None
+      self.assertEqual(return_type, 3)
+
   def test_handeye_calibration(self):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
       s.sendall(
-          b'handeye_calibration;session;65f03015416388eef98f2cc4;vector;0;0;0.025;10;7;3d.handeye.calibration.vathos.net'
+        b'handeye_calibration;session;65f03015416388eef98f2cc4;vector;0;0;0.025;10;7;3d.handeye.calibration.vathos.net'
       )
       data = s.recv(1024)
       response_raw = data.decode('utf-8')
@@ -139,7 +164,9 @@ class TestSocketServer(TestCase):
   def test_submit_pose(self):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
-      s.sendall(b'submit_pose;icp;0.4,0.6,0.1,-0.24,3.0,-89.0;vector;0;-1')
+      s.sendall(
+        b'submit_pose;icp;0.4,0.6,0.1,-0.24,3.0,-89.0;vector;0;-1;-1;-1'
+      )
       data = s.recv(1024)
       response_raw = data.decode('utf-8')
       response_parsed = response_raw.split(';')
@@ -163,13 +190,41 @@ class TestSocketServer(TestCase):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.connect((self.host, self.port))
       s.sendall(
-          b'add_to_layer;palletizing;0.4,0.6,0.1,-0.24,3.0,-89.0;0.4,0.6,0.1,-0.24,3.0,-89.0;0;1;2;vector;0'
+        b'add_to_layer;palletizing;0.4,0.6,0.1,-0.24,3.0,-89.0;0.4,0.6,0.1,-0.24,3.0,-89.0;0;1;2;vector;0'
       )
       data = s.recv(1024)
       response_raw = data.decode('utf-8')
       response_parsed = response_raw.split(';')
       return_type = int(response_parsed[0])
       self.assertEqual(return_type, 3)
+
+  def test_get_place_pose(self):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+      s.connect((self.host, self.port))
+      s.sendall(b'get_place_pose;palletizing;0;vector;0;5')
+      data = s.recv(1024)
+      response_raw = data.decode('utf-8')
+      response_parsed = response_raw.split(';')
+      return_type = int(response_parsed[0])
+      self.assertEqual(return_type, 2)
+      pose_parsed = [float(i) for i in response_parsed[1].split(',')]
+      logging.debug('Got data %s', pose_parsed)
+      self.assertEqual(pose_parsed, [0.12, 0.03, 1.55, -1.0, 104.2, 38.9])
+
+  def test_get_projection_matrix(self):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+      s.connect((self.host, self.port))
+      s.sendall(b'get_projection_matrix;6810e3aeabedd4577b6065b9')
+      data = s.recv(1024)
+      response_raw = data.decode('utf-8')
+      response_parsed = response_raw.split(';')
+      return_type = int(response_parsed[0])
+      self.assertEqual(return_type, 2)
+      pose_parsed = [float(i) for i in response_parsed[1].split(',')]
+      logging.debug('Got data %s', pose_parsed)
+      self.assertEqual(
+        pose_parsed, [1200.0, 0.0, 0.0, 0.0, 1200.0, 0.0, 320.0, 240.0, 1.0]
+      )
 
 
 if __name__ == '__main__':
